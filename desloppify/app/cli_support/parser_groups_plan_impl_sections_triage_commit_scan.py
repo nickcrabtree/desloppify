@@ -79,6 +79,12 @@ examples:
         "--dry-run", action="store_true", default=False,
         help="Preview mode",
     )
+    p_triage.add_argument(
+        "--show-requirements",
+        action="store_true",
+        default=False,
+        help="Print validation requirements for --stage, or all stages when --stage is omitted",
+    )
 
     # Subagent runner
     p_triage.add_argument(

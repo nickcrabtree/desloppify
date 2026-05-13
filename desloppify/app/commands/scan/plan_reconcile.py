@@ -207,7 +207,6 @@ def _clear_plan_start_scores_if_queue_empty(
         return False
     state["_plan_start_scores_for_reveal"] = dict(plan["plan_start_scores"])
     plan["plan_start_scores"] = {}
-    clear_score_communicated_sentinel(plan)
     clear_create_plan_sentinel(plan)
     return True
 

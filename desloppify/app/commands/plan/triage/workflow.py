@@ -18,6 +18,7 @@ from .runner.orchestrator_claude import run_claude_orchestrator
 from .runner.orchestrator_codex_pipeline import run_codex_pipeline
 from .runner.orchestrator_common import parse_only_stages
 from .runner.stage_prompts import cmd_stage_prompt
+from .runner.stage_prompts_validation import render_validation_requirements
 from .services import TriageServices
 from .stage_queue import has_triage_in_queue, inject_triage_stages
 from .stages.completion import cmd_confirm_existing, cmd_triage_complete
@@ -144,6 +145,11 @@ def _read_report_file(report_file: str) -> str:
         raise CommandError(f"Cannot read --report-file: {exc}", exit_code=1) from exc
 
 
+def _show_stage_requirements(args: argparse.Namespace) -> None:
+    """Print stage validation requirements without requiring live plan state."""
+    print(render_validation_requirements(getattr(args, "stage", None)))
+
+
 def run_triage_workflow(
     args: argparse.Namespace,
     *,
@@ -151,6 +157,10 @@ def run_triage_workflow(
     require_issue_inventory_fn: Callable[[dict], bool],
 ) -> None:
     """Route `plan triage` args through one orchestration seam."""
+    if getattr(args, "show_requirements", False):
+        _show_stage_requirements(args)
+        return
+
     # Resolve --report-file to --report (--report takes precedence)
     if not getattr(args, "report", None):
         report_file = getattr(args, "report_file", None)
