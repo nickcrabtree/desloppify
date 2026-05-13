@@ -63,6 +63,11 @@ examples:
     p_scan.add_argument("--path", type=str, default=None, help="Project root directory (default: auto-detected)")
     p_scan.add_argument("--state", type=str, default=None, help="Path to state file")
     p_scan.add_argument(
+        "--by-language",
+        action="store_true",
+        help="Run independent scans for each detected language state",
+    )
+    p_scan.add_argument(
         "--reset-subjective",
         action="store_true",
         help="Reset subjective measures to 0 before running scan",
@@ -118,6 +123,11 @@ def _add_status_parser(sub) -> None:
     p_status = sub.add_parser("status", help="Full project dashboard: score, dimensions, progress, coaching")
     p_status.add_argument("--state", type=str, default=None, help="Path to state file")
     p_status.add_argument("--json", action="store_true", help="Output as JSON")
+    p_status.add_argument(
+        "--by-language",
+        action="store_true",
+        help="Show independent score rows for detected language states",
+    )
 
 
 def _add_tree_parser(sub) -> None:
