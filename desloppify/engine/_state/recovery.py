@@ -6,6 +6,44 @@ from desloppify.engine._state.issue_semantics import ensure_work_item_semantics
 from desloppify.engine._state.schema import ensure_state_defaults, scan_source
 
 
+def _readable_token(value: str) -> str:
+    return value.replace("_", " ").replace("-", " ").strip() or "unknown"
+
+
+def _recovered_review_summary(issue_id: str) -> str:
+    parts = issue_id.split("::")
+    if issue_id.startswith("review::.::holistic::") and len(parts) >= 5:
+        dimension = _readable_token(parts[3])
+        identifier = _readable_token(" ".join(parts[4:]))
+        return f"Recovered holistic review item for {dimension}: {identifier}"
+    if issue_id.startswith("review::") and len(parts) >= 3:
+        file_path = parts[1] or "."
+        identifier = _readable_token(" ".join(parts[2:]))
+        return f"Recovered review item for {file_path}: {identifier}"
+    if issue_id.startswith("concerns::") and len(parts) >= 3:
+        file_path = parts[1] or "."
+        identifier = _readable_token(" ".join(parts[2:]))
+        return f"Recovered concern for {file_path}: {identifier}"
+    return "Recovered review item from saved plan"
+
+
+def _recovered_review_detail(issue_id: str) -> dict:
+    parts = issue_id.split("::")
+    dimension = parts[3] if issue_id.startswith("review::.::holistic::") and len(parts) > 3 else "unknown"
+    return {
+        "dimension": dimension or "unknown",
+        "recovered_from_plan": True,
+        "evidence": [
+            "Recovered from saved plan metadata after scan state was unavailable.",
+            "Original review evidence was not present in the saved plan.",
+        ],
+        "suggestion": (
+            "Re-run or re-import the review for this item before treating it as a "
+            "code defect."
+        ),
+    }
+
+
 def _append_review_id(
     ordered: list[str],
     seen: set[str],
@@ -107,13 +145,10 @@ def _hydrate_saved_issue_ids(
             "status": "open",
             "detector": detector,
             "file": parts[1] if len(parts) > 1 else "",
-            "summary": issue_id,
+            "summary": _recovered_review_summary(issue_id),
             "confidence": "medium",
             "tier": 2,
-            "detail": {
-                "dimension": "unknown",
-                "recovered_from_plan": True,
-            },
+            "detail": _recovered_review_detail(issue_id),
         }
         ensure_work_item_semantics(recovered_issues[issue_id])
 

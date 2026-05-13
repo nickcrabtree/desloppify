@@ -43,6 +43,31 @@ def test_load_state_recovers_runtime_state_from_saved_plan(tmp_path: Path) -> No
     }
 
 
+def test_saved_plan_recovery_gives_holistic_items_actionable_context(
+    tmp_path: Path,
+) -> None:
+    issue_id = "review::.::holistic::authorization_consistency::ok6"
+    plan = {
+        "queue_order": [issue_id],
+        "clusters": {},
+        "epic_triage_meta": {"triage_stages": {"observe": {"report": "done"}}},
+        "skipped": {},
+    }
+    (tmp_path / "plan.json").write_text(json.dumps(plan))
+
+    state = load_state(tmp_path / "state-typescript.json")
+
+    item = state["work_items"][issue_id]
+    assert item["summary"] != issue_id
+    assert item["summary"] == (
+        "Recovered holistic review item for authorization consistency: ok6"
+    )
+    assert item["detail"]["dimension"] == "authorization_consistency"
+    assert item["detail"]["recovered_from_plan"] is True
+    assert item["detail"]["evidence"]
+    assert "Re-run or re-import" in item["detail"]["suggestion"]
+
+
 def test_load_state_drops_stale_reconstructed_state_without_live_plan(tmp_path: Path) -> None:
     """Persisted plan-derived state should clear when the live plan disappears."""
     state = empty_state()
