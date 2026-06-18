@@ -11,7 +11,9 @@ from desloppify.engine.detectors.orphaned import (
     _has_dunder_all,
     _is_dynamically_imported,
     _is_nextjs_convention_entry,
+    _is_web_language,
     detect_orphaned_files,
+    find_html_loaded_assets,
 )
 
 # ---------------------------------------------------------------------------
@@ -683,3 +685,74 @@ class TestNextjsIntegration:
             )
 
         assert len(entries) == 1
+
+
+# ===================================================================
+# find_html_loaded_assets — script-tag / worker references
+# ===================================================================
+
+
+class TestFindHtmlLoadedAssets:
+    """The HTML asset finder lets browser-loaded scripts escape orphan flagging."""
+
+    def test_non_web_language_returns_empty(self, tmp_path):
+        """No HTML scanning for non-web languages (e.g. Python)."""
+        (tmp_path / "index.html").write_text(
+            '<script src="/static/js/a.js"></script>'
+        )
+        assert find_html_loaded_assets(tmp_path, [".py"]) == set()
+        assert _is_web_language([".py"]) is False
+        assert _is_web_language([".js"]) is True
+
+    def test_finds_script_src_jinja_and_worker_refs(self, tmp_path):
+        """Literal <script src>, Jinja url_for, and new Worker() are all captured."""
+        (tmp_path / "page.html").write_text(
+            "<html><body>\n"
+            '  <script src="/static/js/literal.js"></script>\n'
+            "  <script src=\"{{ url_for('static', filename='js/jinja.js') }}\"></script>\n"
+            "</body></html>\n"
+        )
+        (tmp_path / "worker_host.js").write_text(
+            "const w = new Worker('/static/js/bg.worker.js');\n" + "// pad\n" * 12
+        )
+
+        targets = find_html_loaded_assets(tmp_path, [".js"])
+
+        assert "/static/js/literal.js" in targets
+        assert "js/jinja.js" in targets  # extracted from the Jinja expression
+        assert "/static/js/bg.worker.js" in targets
+
+    def test_script_loaded_file_not_orphaned_but_dead_file_is(self, tmp_path):
+        """Integration: a script-tag-loaded file with zero importers is spared,
+        while a genuinely unreferenced file is still reported."""
+        static = tmp_path / "static" / "js"
+        loaded = _write_file(static / "loaded.js", lines=30)
+        dead = _write_file(static / "dead.js", lines=30)
+
+        templates = tmp_path / "templates"
+        templates.mkdir(parents=True)
+        (templates / "index.html").write_text(
+            "<script src=\"{{ url_for('static', filename='js/loaded.js') }}\"></script>"
+        )
+
+        graph = {
+            str(loaded): _graph_entry(importer_count=0),
+            str(dead): _graph_entry(importer_count=0),
+        }
+
+        with patch(
+            "desloppify.engine.detectors.orphaned.rel",
+            side_effect=lambda p: str(Path(p).relative_to(tmp_path)),
+        ):
+            entries, total = detect_orphaned_files(
+                tmp_path,
+                graph,
+                [".js"],
+                options=OrphanedDetectionOptions(
+                    dynamic_import_finder=find_html_loaded_assets
+                ),
+            )
+
+        flagged = {Path(e["file"]).name for e in entries}
+        assert "loaded.js" not in flagged  # spared: referenced by a <script> tag
+        assert "dead.js" in flagged  # still caught: referenced by nothing
