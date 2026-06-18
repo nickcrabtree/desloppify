@@ -6,6 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from desloppify.engine._state.filtering import make_issue
 from desloppify.engine.detectors.base import ComplexitySignal
 from desloppify.engine.detectors.complexity import detect_complexity
 from desloppify.engine.detectors.flat_dirs import (
@@ -18,9 +19,9 @@ from desloppify.engine.detectors.large import detect_large_files
 from desloppify.engine.detectors.orphaned import (
     OrphanedDetectionOptions,
     detect_orphaned_files,
+    find_html_loaded_assets,
 )
 from desloppify.engine.detectors.single_use import detect_single_use_abstractions
-from desloppify.engine._state.filtering import make_issue
 from desloppify.engine.policy.zones import adjust_potential, filter_entries
 from desloppify.languages._framework.base.structural import (
     add_structural_signal,
@@ -180,6 +181,7 @@ def run_coupling_phase(
         options=OrphanedDetectionOptions(
             extra_entry_patterns=lang.entry_patterns,
             extra_barrel_names=lang.barrel_names,
+            dynamic_import_finder=find_html_loaded_assets,
         ),
     )
     orphan_entries = filter_entries(zone_map, orphan_entries, "orphaned")

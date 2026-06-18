@@ -7,8 +7,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from desloppify.base.discovery.file_paths import rel
-from desloppify.base.discovery.file_paths import count_lines
+from desloppify.base.discovery.file_paths import count_lines, rel
+from desloppify.base.discovery.source import find_source_files
 
 _DUNDER_ALL_RE = re.compile(r"^__all__\s*[:=]", re.MULTILINE)
 
@@ -79,6 +79,72 @@ def _is_nextjs_convention_entry(rel_path: str) -> bool:
             return True
 
     return False
+
+
+# ---------------------------------------------------------------------------
+# HTML / template asset references (script-tag and worker loaded files)
+# ---------------------------------------------------------------------------
+
+_WEB_SCRIPT_EXTENSIONS: set[str] = {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}
+
+# Flask/Jinja: url_for('static', filename='js/foo.js')
+_JINJA_STATIC_RE = re.compile(
+    r"""url_for\(\s*['"]static['"]\s*,\s*filename\s*=\s*['"]([^'"]+)['"]"""
+)
+# <script ... src="/static/js/foo.js"> — literal src (Jinja exprs handled above)
+_SCRIPT_SRC_RE = re.compile(
+    r"""<script\b[^>]*?\bsrc\s*=\s*['"]([^'"]+)['"]""", re.IGNORECASE
+)
+# new Worker('/static/js/foo.worker.js')
+_WORKER_RE = re.compile(r"""new\s+Worker\(\s*['"]([^'"]+)['"]""")
+
+
+def _is_web_language(extensions: list[str]) -> bool:
+    """Return True if *extensions* covers a browser-script language."""
+    return any(ext in _WEB_SCRIPT_EXTENSIONS for ext in extensions)
+
+
+def find_html_loaded_assets(path: Path, extensions: list[str]) -> set[str]:
+    """Return script/worker asset references the module graph cannot see.
+
+    Browser apps load scripts via ``<script src=...>`` tags — frequently through
+    a server-side helper such as Flask/Jinja ``url_for('static', filename=...)``
+    — and via ``new Worker(...)``. Those files have no importer in the module
+    graph yet are plainly live, so the orphaned detector treats anything matched
+    here as dynamically imported. Genuinely unreferenced files are unaffected.
+
+    Only runs for web languages; returns an empty set otherwise.
+    """
+    if not _is_web_language(extensions):
+        return set()
+
+    targets: set[str] = set()
+
+    # HTML templates: <script src>, url_for static assets, and worker refs.
+    for html_path in find_source_files(path, [".html"]):
+        try:
+            text = Path(html_path).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for match in _JINJA_STATIC_RE.finditer(text):
+            targets.add(match.group(1))
+        for match in _SCRIPT_SRC_RE.finditer(text):
+            src = match.group(1)
+            if "{{" not in src:  # skip unresolved Jinja expressions
+                targets.add(src)
+        for match in _WORKER_RE.finditer(text):
+            targets.add(match.group(1))
+
+    # Source files: a Web Worker is constructed with a sibling script URL.
+    for src_path in find_source_files(path, list(extensions)):
+        try:
+            text = Path(src_path).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for match in _WORKER_RE.finditer(text):
+            targets.add(match.group(1))
+
+    return targets
 
 
 @dataclass
