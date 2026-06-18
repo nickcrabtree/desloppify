@@ -873,7 +873,9 @@ class TestCmdReviewPrepare:
         assert len(packet_files) == 1
         blind_packet = tmp_path / ".desloppify" / "review_packet_blind.json"
         assert blind_packet.exists()
-        prompt_files = list(runs_dir.glob("*/prompts/batch-*.md"))
+        # Sort so prompt_files[0] is deterministically batch-1 (the rich batch);
+        # glob() order is filesystem-dependent and was flaky here.
+        prompt_files = sorted(runs_dir.glob("*/prompts/batch-*.md"))
         assert len(prompt_files) == 2
         prompt_text = prompt_files[0].read_text()
         assert "Blind packet:" in prompt_text
