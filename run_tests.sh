@@ -14,7 +14,7 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONDA_ENV="aro_desloppify_20260228T061951Z"
+CONDA_ENV="desloppify"
 
 if ! command -v conda >/dev/null 2>&1; then
   echo "ERROR: conda not found on PATH" >&2

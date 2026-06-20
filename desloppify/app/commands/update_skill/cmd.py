@@ -21,7 +21,13 @@ from desloppify.base.discovery.file_paths import safe_write_text
 from desloppify.base.discovery.paths import get_project_root
 from desloppify.base.output.terminal import colorize
 
-_RAW_BASE = "https://raw.githubusercontent.com/peteromallet/desloppify/main/docs"
+# Local-fork override: serve the skill doc from this editable fork's own docs
+# rather than upstream GitHub, so `update-skill` installs our patched guidance
+# (and the fork-pointing Prerequisite) instead of upstream's. file:// is read by
+# urllib.request.urlopen the same as http(s). Point this back at
+# https://raw.githubusercontent.com/peteromallet/desloppify/main/docs to track
+# upstream's skill doc again.
+_RAW_BASE = "file:///home/nickc/code/desloppify/docs"
 
 
 def _ssl_context() -> ssl.SSLContext:

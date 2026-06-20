@@ -247,52 +247,41 @@ desloppify config show                            # show all config including ex
 desloppify scan --path . --reset-subjective       # reset subjective baseline to 0
 ```
 
-## 4. Fix Tool Issues Upstream
+## 4. Fix Tool Issues (in our local fork)
 
-When desloppify itself appears wrong or inconsistent — a bug, a bad detection, a crash, confusing output — **fix it and open a PR**. If you can't confidently fix it, file an issue instead.
+When desloppify itself appears wrong or inconsistent — a bug, a bad detection, a crash, confusing output — **fix it in our fork** (`~/code/desloppify`, editable-installed so changes take effect immediately) and push to the fork. If you can't confidently fix it, leave a note / file an issue on the fork instead.
 
 ### Fix and PR (preferred)
 
 Clone the tool repo to a temp directory, make the fix there, and verify it works against the project you're scanning before pushing.
 
 ```bash
-git clone https://github.com/peteromallet/desloppify.git /tmp/desloppify-fix
-cd /tmp/desloppify-fix
-git checkout -b fix/<short-description>
+cd ~/code/desloppify           # the editable fork this env already runs
+git checkout -b fix/<short-description>   # (or just work on main — it's a personal fork)
 ```
 
 Make your changes, then run the test suite and verify the fix against the original project:
 
 ```bash
-python -m pytest desloppify/tests/ -q
+./run_tests.sh -q                                 # the fork's test suite
 python -m desloppify scan --path <project-root>   # the project you were scanning
 ```
 
-Once it looks good, push and open a PR:
+Once it looks good, commit and push to the fork:
 
 ```bash
 git add <files> && git commit -m "fix: <what and why>"
-git push -u origin fix/<short-description>
-gh pr create --title "fix: <short description>" --body "$(cat <<'EOF'
-## Problem
-<what went wrong — include the command and output>
-
-## Fix
-<what you changed and why>
-EOF
-)"
+git push origin HEAD
 ```
-
-Clean up after: `rm -rf /tmp/desloppify-fix`
 
 ### File an issue (fallback)
 
-If the fix is unclear or the change needs discussion, open an issue at `https://github.com/peteromallet/desloppify/issues` with a minimal repro: command, path, expected output, actual output.
+If the fix is unclear or needs discussion, leave a note for the maintainer or open an issue on the fork: `https://github.com/nickcrabtree/desloppify/issues`.
 
 ## Prerequisite
 
-`command -v desloppify >/dev/null 2>&1 && echo "desloppify: installed" || echo "NOT INSTALLED — run: uvx --from git+https://github.com/peteromallet/desloppify.git desloppify"`
+`command -v desloppify >/dev/null 2>&1 && echo "desloppify: installed" || echo "NOT INSTALLED — install the LOCAL FORK: pip install -e ~/code/desloppify[full]"`
 
-If `uvx` is not available: `pip install desloppify[full] && desloppify setup`
+This project uses a **local fork** of desloppify (editable-installed from `~/code/desloppify`) that carries local patches. Do NOT `pip install desloppify` from PyPI and do NOT `uvx --from git+.../peteromallet/...` — those use the unpatched upstream and reintroduce bugs the fork fixes (e.g. script-tag-loaded JS mis-flagged as orphaned). If the clone is missing: `git clone git@github.com:nickcrabtree/desloppify.git ~/code/desloppify && pip install -e ~/code/desloppify[full]`.
 
 <!-- desloppify-end -->
